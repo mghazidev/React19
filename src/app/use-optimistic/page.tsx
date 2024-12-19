@@ -3,15 +3,28 @@
 import React, { useState } from "react";
 import { useOptimistic } from "react";
 
+// Define types for items and actions
 type Item = { id: number; name: string };
+type Action =
+  | { type: "add"; payload: Item }
+  | { type: "delete"; payload: Item };
 
 const UseOptimisticExample = () => {
   const [query, setQuery] = useState("");
 
-  // Define the initial state and optimistic updater
-  const [items, updateItems] = useOptimistic<Item[]>(
-    [], // Initial state
-    (currentItems, newItem) => [...currentItems, newItem] // Optimistic update
+  // Initialize useOptimistic with a typed updater function
+  const [items, updateItems] = useOptimistic<Item[], Action>(
+    [],
+    (currentItems, action) => {
+      switch (action.type) {
+        case "add":
+          return [...currentItems, action.payload];
+        case "delete":
+          return currentItems.filter((item) => item.id !== action.payload.id);
+        default:
+          return currentItems;
+      }
+    }
   );
 
   // Add a new item (mock API)
@@ -19,7 +32,7 @@ const UseOptimisticExample = () => {
     const newItem = { id: Date.now(), name };
 
     // Optimistically update the state
-    updateItems(newItem);
+    updateItems({ type: "add", payload: newItem });
 
     try {
       const response = await fetch(
@@ -35,19 +48,19 @@ const UseOptimisticExample = () => {
       console.log("Item successfully added:", await response.json());
     } catch (error) {
       console.error("Error adding item, rolling back...", error);
-      // Roll back optimistic update by removing the item
-      updateItems((currentItems) =>
-        currentItems.filter((item) => item.id !== newItem.id)
-      );
+      // Rollback by removing the optimistically added item
+      updateItems({ type: "delete", payload: newItem });
     }
   };
 
   // Delete an item (mock API)
   const deleteItem = async (id: number) => {
+    const deletedItem = items.find((item) => item.id === id);
+
+    if (!deletedItem) return;
+
     // Optimistically remove the item
-    updateItems((currentItems) =>
-      currentItems.filter((item) => item.id !== id)
-    );
+    updateItems({ type: "delete", payload: deletedItem });
 
     try {
       const response = await fetch(
@@ -61,9 +74,8 @@ const UseOptimisticExample = () => {
       console.log("Item successfully deleted:", id);
     } catch (error) {
       console.error("Error deleting item, rolling back...", error);
-      // Roll back optimistic update by adding the item back
-      const deletedItem = items.find((item) => item.id === id);
-      if (deletedItem) updateItems(deletedItem);
+      // Rollback by re-adding the item
+      updateItems({ type: "add", payload: deletedItem });
     }
   };
 
