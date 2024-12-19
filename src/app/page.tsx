@@ -14,6 +14,10 @@ export default function Home() {
       title: "Use Optimistic",
       path: "/use-optimistic",
     },
+    {
+      title: "Use Action State",
+      path: "/use-action-state",
+    },
   ];
 
   return (
